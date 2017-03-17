@@ -211,41 +211,54 @@ namespace CodeConverter.Parser.Delphi
       return block;
     }
 
-    private cClassAbstraction parseInterface(List<string> content)
+    /// <summary>
+    /// parse all classes in interface section
+    /// </summary>
+    /// <param name="content"></param>
+    /// <returns></returns>
+    private List<cClassAbstraction> parseInterface(List<string> content)
     {
-      cClassAbstraction parsedClass = new cClassAbstraction();
+      List<cClassAbstraction> parsedClasses = new List<cClassAbstraction>();
+      cClassAbstraction actualClass = new cClassAbstraction();
       eVisiblity visibility = eVisiblity.Visibility_private;
       bool isClass = false;
 
-      int ArrayPos;
+      int ArrayPos;      
       for (ArrayPos = 0; ArrayPos < content.Count; ArrayPos++)
       {
         string actualWord = content[ArrayPos].Trim();
-
-        // class 
-        if ((actualWord == "type") &&
-            (content[ArrayPos + 2] == "=") &&
-            (content[ArrayPos + 3] == "class"))
+        if (actualWord != "end;")
         {
-          parsedClass.ClassName = content[ArrayPos + 1];
-          ArrayPos += 3;
-          isClass = true;
+          // class 
+          if ((actualWord == "type") &&
+              (content[ArrayPos + 2] == "=") &&
+              (content[ArrayPos + 3] == "class"))
+          {
+            actualClass.ClassName = content[ArrayPos + 1];
+            ArrayPos += 3;
+            isClass = true;
+          }
+          else
+          {
+            if (isClass)
+            {
+              // class members
+              if (actualWord == "private") { visibility = eVisiblity.Visibility_private; }
+              if (actualWord == "protected") { visibility = eVisiblity.Visibility_protected; }
+              if (actualWord == "public") { visibility = eVisiblity.Visibility_public; }
+
+              List<string> block = parseToEscapeCharacter(content, ref ArrayPos);
+              parseStatement(block, visibility, actualClass);
+            }
+          }
         }
         else
         {
-          if (isClass)
-          {
-            // class members
-            if (actualWord == "private") { visibility = eVisiblity.Visibility_private; }
-            if (actualWord == "protected") { visibility = eVisiblity.Visibility_protected; }
-            if (actualWord == "public") { visibility = eVisiblity.Visibility_public; }
-
-            List<string> block = parseToEscapeCharacter(content, ref ArrayPos);
-            parseStatement(block, visibility, parsedClass);
-          }
+          parsedClasses.Add(actualClass);
+          actualClass = new cClassAbstraction();
         }
       }
-      return parsedClass;
+      return parsedClasses;
     }
 
     /// <summary>
@@ -257,27 +270,42 @@ namespace CodeConverter.Parser.Delphi
     {
       cDelphiFile file = new cDelphiFile();
 
+      // get all classes inside this file
       // split up file sections
       bool isInterface = false;
       bool isImplementation = false;
+      bool isFileName = false;
       foreach (string word in content)
       {
-        if (word == "interface") { isInterface = true; isImplementation = false; continue; }
-        if (word == "implementation") { isInterface = false; isImplementation = true; continue; }
-
-        if (isInterface)
+        if (word != "end.")
         {
-          file.InterfaceSection.Add(word);
-        }
+          // file unit name
+          if (word == "unit") { isFileName = true; }
 
-        if (isImplementation)
-        {
-          file.ImplementationSection.Add(word);
+          if (word == "interface") { isInterface = true; isImplementation = false; isFileName = false; continue; }
+          if (word == "implementation") { isInterface = false; isImplementation = true; isFileName = false; continue; }
+
+          if (isFileName)
+          {
+            file.FileName = word;
+          }
+
+          if (isInterface)
+          {
+            file.InterfaceSection.Add(word);
+          }
+
+          if (isImplementation)
+          {
+            file.ImplementationSection.Add(word);
+          }
         }
+        else
+        {
+          // first get interface of classes
+          file.Classes.AddRange(parseInterface(file.InterfaceSection));
+        }       
       }
-
-      file.Classes.Add(parseInterface(file.InterfaceSection));
-
       return file;
     }  
 
@@ -292,7 +320,6 @@ namespace CodeConverter.Parser.Delphi
       char[] escapedChar = new[] { '\t', '\r', '\n' };
 
       cClassAbstraction parsedClass = new cClassAbstraction();
-      cDelphiFile file = new cDelphiFile();
 
       string tmp = reader.ReadToEnd();
 

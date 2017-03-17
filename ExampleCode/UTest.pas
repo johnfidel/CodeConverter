@@ -2,6 +2,10 @@ unit UTest;
 
 interface
 
+  type TEmptyClass = class
+
+  end;
+
 	type
 		TTest = class
 

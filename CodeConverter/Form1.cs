@@ -8,6 +8,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
+using CodeConverter.Translater;
+using CodeConverter.Translater.Delphi;
+using CodeConverter.CodeAbstraction;
 using CodeConverter.Parser;
 using CodeConverter.Parser.Delphi;
 
@@ -23,7 +26,11 @@ namespace CodeConverter
     private void btnRun_Click(object sender, EventArgs e)
     {
       cParser parser = new cDelphiFileParser();
-      parser.parse(txtFile.Text);
+      cFileAbstraction file = parser.parse(txtFile.Text);
+
+      // translate into selected language
+      cTranslater translator = new cDelphiCodeTranslater();
+      translator.translate(file);
     }
   }
 }

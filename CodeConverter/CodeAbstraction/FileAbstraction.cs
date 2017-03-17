@@ -9,12 +9,12 @@ namespace CodeConverter.CodeAbstraction
 {
   public class cFileAbstraction
   {
-    public FileInfo Info
+    public string FileName
     {
-      get { return m_Info; }
-      set { m_Info = value; }
+      get { return m_FileName; }
+      set { m_FileName = value; }
     }
-    private FileInfo m_Info;
+    private string m_FileName;
 
     public List<cClassAbstraction> Classes
     {
@@ -22,6 +22,5 @@ namespace CodeConverter.CodeAbstraction
       set { m_Classes = value; }
     }
     private List<cClassAbstraction> m_Classes = new List<cClassAbstraction>();
-
   }
 }
