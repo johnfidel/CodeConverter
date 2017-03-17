@@ -11,8 +11,8 @@ interface
         privateMember3 : Double ;
 
 			private	procedure privateProcedure1;
-			private	function privateFunction1: Boolean;
-        function privateFunction2 : Integer;
+			private	function privateFunction1(param1: Integer; param2: Double): Boolean;
+        function privateFunction2(param1: Integer) : Integer ;
         function privateFunction3 : Double ;
 
 			protected

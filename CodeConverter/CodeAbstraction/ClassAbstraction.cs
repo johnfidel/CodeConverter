@@ -7,6 +7,8 @@ using System.IO;
 
 namespace CodeConverter
 {
+  public enum eVisiblity { Visibility_private, Visibility_protected, Visibility_public };
+
   public class cMember
   {
     public string Name
@@ -22,10 +24,46 @@ namespace CodeConverter
       set { m_DataType = value; }
     }
     private string m_DataType = "";
+
+    public eVisiblity Visibility
+    {
+      get { return m_Visibility; }
+      set { m_Visibility = value; }
+    }
+    private eVisiblity m_Visibility = eVisiblity.Visibility_private;
   }
     
-  public class cFunction
-  {    
+  public class cMethod
+  {
+
+    public string Name
+    {
+      get { return m_Name; }
+      set { m_Name = value; }
+    }
+    private string m_Name = "";
+
+    public List<cMember> Parameters
+    {
+      get { return m_Parameters; }
+      set { m_Parameters = value; }
+    }
+    private List<cMember> m_Parameters = new List<cMember>();
+
+    public string DataType
+    {
+      get { return m_DataType; }
+      set { m_DataType = value; }
+    }
+    private string m_DataType = "";
+
+    public eVisiblity Visibility
+    {
+      get { return m_Visibility; }
+      set { m_Visibility = value; }
+    }
+    private eVisiblity m_Visibility = eVisiblity.Visibility_private;
+
   }
 
   public class cClassAbstraction
@@ -44,11 +82,11 @@ namespace CodeConverter
     }
     private List<cMember> m_Members = new List<cMember>();
 
-    public List<cFunction> Functions
+    public List<cMethod> Methods
     {
-      get { return m_Functions; }
-      set { m_Functions = value; }
+      get { return m_Methods; }
+      set { m_Methods = value; }
     }
-    private List<cFunction> m_Functions = new List<cFunction>();
+    private List<cMethod> m_Methods = new List<cMethod>();
   }
 }
