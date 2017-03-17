@@ -1,0 +1,11 @@
+bin
+obj
+__history
+ExampleCode
+
+*.resx
+*.res
+*.stat
+*.suo
+*.dproj.local
+*.identcache
