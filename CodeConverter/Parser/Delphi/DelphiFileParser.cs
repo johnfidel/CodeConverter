@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Diagnostics;
 
 using CodeConverter.CodeAbstraction;
 using CodeConverter.CodeAbstraction.Delphi;
@@ -15,24 +16,70 @@ namespace CodeConverter.Parser.Delphi
     private enum eStatementType { StatementType_unknown, StatementType_function, StatementType_procedure, StatementType_member };
 
     /// <summary>
+    /// transform a string list into a simple word array. splits
+    /// up ';', ':', '(' and ')' single elements
+    /// </summary>
+    /// <param name="content"></param>
+    /// <returns></returns>
+    private List<string> transformToList(List<string> content)
+    {
+      char[] chars = new[] { ';', ':' };
+      string alllines = content.Aggregate(new StringBuilder(), (builder, line) =>
+                                                                  builder.Append(line)).ToString();
+
+      string linewithescapedchars = alllines.Aggregate(new StringBuilder(), (builder, character) =>
+                                                                  (chars.Contains(character) ? 
+                                                                    builder.Append(' ').Append(character).Append(' ') : 
+                                                                    builder.Append(character)))
+                                                                  .ToString();
+
+      string[] words = linewithescapedchars.Split(' ');
+      // remove emty places
+      return words.Where(word => word != "").ToList(); ;
+    }
+
+    /// <summary>
     /// removes visibility
+    /// PRECONDITION: the statement must be a list of single words per item
     /// </summary>
     /// <param name="statement"></param>
-    private void removeVisibility(List<string> statement)
+    private bool getAndRemoveVisibility(List<string> statement, out eVisiblity visibility)
     {
+      bool result = true;
+      visibility = eVisiblity.Visibility_private;
+
       if (statement.Count > 0)
       {
-        if ((statement[0] == "private") ||
-            (statement[0] == "protected") ||
-            (statement[0] == "public"))
+        if (statement[0] == "private")
         {
+          visibility = eVisiblity.Visibility_private;
           statement.RemoveAt(0);
         }
-      }      
+        else if (statement[0] == "protected")
+        {
+          visibility = eVisiblity.Visibility_protected;
+          statement.RemoveAt(0);
+        }
+        else if (statement[0] == "public")
+        {
+          visibility = eVisiblity.Visibility_public;
+          statement.RemoveAt(0);
+        }
+        else
+        {
+          result = false;
+        }
+      }
+      else
+      {
+        result = false;
+      }
+      return result;
     }
 
     /// <summary>
     /// checks the type of statement
+    /// PRECONDITION: the statement must be a list of single words per item
     /// </summary>
     /// <param name="statement"></param>
     /// <returns></returns>
@@ -40,15 +87,15 @@ namespace CodeConverter.Parser.Delphi
     {
       if (statement.Count > 0)
       {
-        if (statement[0] == "procedure")
+        if (statement[0].Contains("procedure"))
         {
           return eStatementType.StatementType_procedure;
         }
-        else if (statement[0] == "function")
+        else if (statement[0].Contains("function"))
         {
           return eStatementType.StatementType_function;
         }
-        else if (statement.Count >= 2)
+        else if (statement[1].Contains(":"))
         {
           return eStatementType.StatementType_member;
         }
@@ -62,83 +109,61 @@ namespace CodeConverter.Parser.Delphi
 
     /// <summary>
     /// parse for a member
+    /// PRECONDITION: the statement must be a list of single words per item
     /// </summary>
     /// <param name="statement"></param>
     /// <returns></returns>
     private cMember parseMember(List<string> statement)
     {
+      List<string> words = transformToList(statement);
+
       cMember member = new cMember();
-      if (statement.Count > 2)
+      if (words.Count > 2)
       {
-        member.Name = statement[0];
-        member.DataType = statement[2].Replace(';', ' ').Trim();
-      }
-      else
-      {
-        member.Name = statement[0].Replace(':', ' ').Trim();
-        member.DataType = statement[1].Replace(';', ' ').Trim();
-      }
+        member.Name = words[0];
+        member.DataType = words[2];
+      }      
       return member;
     }
 
     /// <summary>
     /// parse for a method
+    /// PRECONDITION: the statement must be a list of single words per item
     /// </summary>
     /// <param name="statement"></param>
     /// <returns></returns>
     private cMethod parseFunction(List<string> statement)
     {
-      int ArrayPos = 0;
-      cMethod method = new cMethod();
-      method.Name = statement[1];    
-
-      // do we have parameters
-      if (statement.Contains("("))
-      {
-        int PosOfBracklet = statement.FindIndex(word => word == ")");
-        for (ArrayPos = 3; ArrayPos < PosOfBracklet; ArrayPos++)        
-        {
-          List<string> parameter = parseToEscapeCharacter(statement, ref ArrayPos);
-          cMember member = parseMember(parameter);
-          method.Parameters.Add(member);
-        }
-        List<string> returnValue = parseToEscapeCharacter(statement, ref ArrayPos);
-        if (returnValue.Last() != ";")
-        {
-          method.DataType = returnValue.Last().Replace(';', ' ').Trim();
-        }
-        else
-        {
-          method.DataType = returnValue[returnValue.Count-2];
-        }        
-      }
-      else
-      {
-        if (statement.Last() != ";")
-        {
-          method.DataType = statement.Last().Replace(';', ' ').Trim();
-        }
-        else
-        {
-          method.DataType = statement[statement.Count - 2];
-        }
-      }
-
+      cMethod method = parseProcedure(statement);
+      // get return value     
+      method.DataType = statement[statement.Count - 2];
 
       return method;
     }
 
     /// <summary>
     /// parse for a method
+    /// PRECONDITION: the statement must be a list of single words per item
     /// </summary>
     /// <param name="statement"></param>
     /// <returns></returns>
     private cMethod parseProcedure(List<string> statement)
     {
+      int ArrayPos = 0;
       cMethod method = new cMethod();
-
       method.Name = statement[1];
 
+      // do we have parameters
+      if (statement.Contains("("))
+      {
+        int PosOfBracklet = statement.FindIndex(word => word == ")");
+        for (ArrayPos = 3; ArrayPos < PosOfBracklet; ArrayPos++)
+        {
+          List<string> parameter = parseToEscapeCharacter(statement, ref ArrayPos);
+          cMember member = parseMember(parameter);
+          method.Parameters.Add(member);
+        }        
+      }    
       return method;
     }
 
@@ -148,37 +173,64 @@ namespace CodeConverter.Parser.Delphi
     /// <param name="statement"></param>
     /// <param name="visiblity"></param>
     /// <param name="classRef"></param>
-    private void parseStatement(List<string> statement, eVisiblity visiblity, cClassAbstraction classRef)
+    private eVisiblity m_visibility = eVisiblity.Visibility_private;
+    private void parseStatement(List<string> statement, cClassAbstraction classRef)
     {
-      eStatementType type;
+      eStatementType type;      
          
-      // remove visibility if available
-      removeVisibility(statement);
+      // distinct comment from real statement
+      List<string> comment = statement.Where(line => line.Trim().First() == '/').ToList();
+      // extract inline comment
+      List<string> realstatement = new List<string>();
+      List<string> inlinecomment = new List<string>();
+      foreach (string line in statement.Where(line => line.Trim().First() != '/').ToList())
+      {
+        if (line.Contains("//"))
+        {
+          string[] substrings = line.Split('/');
+          realstatement.Add(substrings.First());
+          inlinecomment.Add(substrings.Last().Insert(0, "// "));
+        }
+        else
+        {
+          realstatement.Add(line);
+        }
+      }
 
+      List<string> words = transformToList(realstatement);
       // then check wheter if it is a method or a member    
-      type = getStatementType(statement);
+      eVisiblity newVisibility = eVisiblity.Visibility_private;
+      if (getAndRemoveVisibility(words, out newVisibility)) { m_visibility = newVisibility; }
+      type = getStatementType(words);
 
       switch (type)
       {
         case eStatementType.StatementType_member:
           {
-            cMember member = parseMember(statement);
+            cMember member = parseMember(words);
+            member.Visibility = m_visibility;
+            member.Comment = comment;
+            member.InlineComment += inlinecomment; 
             classRef.Members.Add(member);
             break;
           }
 
         case eStatementType.StatementType_procedure:
           {
-            cMethod method = parseProcedure(statement);
-            method.Visibility = visiblity;
+            cMethod method = parseProcedure(words);
+            method.Visibility = m_visibility;
+            method.Comment = comment;
+            method.InlineComment += inlinecomment;
             classRef.Methods.Add(method);
             break;
           }
 
         case eStatementType.StatementType_function:
           {
-            cMethod method = parseFunction(statement);
-            method.Visibility = visiblity;
+            cMethod method = parseFunction(words);
+            method.Visibility = m_visibility;
+            method.Comment = comment;
+            method.InlineComment += inlinecomment;
             classRef.Methods.Add(method);
             break;
           }       
@@ -197,10 +249,10 @@ namespace CodeConverter.Parser.Delphi
       bool inQuote = false;
       for (; ArrayPos < content.Count; ArrayPos++)
       {
-        if (content[ArrayPos] == "(") { inQuote = true; }
-        if (content[ArrayPos] == ")") { if (inQuote) { inQuote = false; } else { break; } }
+        if (content[ArrayPos].Contains("(")) { inQuote = true; }
+        if (content[ArrayPos].Contains(")")) { if (inQuote) { inQuote = false; } else { break; } }
 
-        if (((content[ArrayPos] == ";") || (content[ArrayPos][content[ArrayPos].Length-1] == ';')) &&
+        if ((content[ArrayPos].Contains(";")) &&
           (!inQuote))
         {
           block.Add(content[ArrayPos]);
@@ -208,7 +260,8 @@ namespace CodeConverter.Parser.Delphi
         }
         block.Add(content[ArrayPos]);
       }
-      return block;
+      // remove emtpy lines
+      return block.Where(line => line != "").ToList();
     }
 
     /// <summary>
@@ -220,40 +273,49 @@ namespace CodeConverter.Parser.Delphi
     {
       List<cClassAbstraction> parsedClasses = new List<cClassAbstraction>();
       cClassAbstraction actualClass = new cClassAbstraction();
-      eVisiblity visibility = eVisiblity.Visibility_private;
+                                                                            
       bool isClass = false;
 
       int ArrayPos;      
       for (ArrayPos = 0; ArrayPos < content.Count; ArrayPos++)
       {
-        string actualWord = content[ArrayPos].Trim();
-        if (actualWord != "end;")
+        string actualLine = content[ArrayPos].Trim();
+        if (actualLine != "end;")
         {
+          string[] words = actualLine.Split(' ');     
+
           // class 
-          if ((actualWord == "type") &&
-              (content[ArrayPos + 2] == "=") &&
-              (content[ArrayPos + 3] == "class"))
-          {
-            actualClass.ClassName = content[ArrayPos + 1];
-            ArrayPos += 3;
+          if ((actualLine.Contains("=")) &&
+              (actualLine.Contains("class")))
+          {            
+            actualClass.ClassName = actualLine.Replace("type", " ")
+                                              .Replace("=", " ")
+                                              .Replace("class", " ").Trim();            
             isClass = true;
           }
           else
           {
             if (isClass)
             {
-              // class members
-              if (actualWord == "private") { visibility = eVisiblity.Visibility_private; }
-              if (actualWord == "protected") { visibility = eVisiblity.Visibility_protected; }
-              if (actualWord == "public") { visibility = eVisiblity.Visibility_public; }
-
-              List<string> block = parseToEscapeCharacter(content, ref ArrayPos);
-              parseStatement(block, visibility, actualClass);
+              if (actualLine != "")
+              {
+                List<string> block = parseToEscapeCharacter(content, ref ArrayPos);                
+                parseStatement(block, actualClass);
+              }
+            }
+            else
+            {
+              // comment
+              if ((words.First() == "//") || (words.First() == "///"))
+              {
+                actualClass.Comment.Add(actualLine + '\r' + '\n');
+              }
             }
           }
         }
         else
         {
+          isClass = false;
           parsedClasses.Add(actualClass);
           actualClass = new cClassAbstraction();
         }
@@ -261,50 +323,66 @@ namespace CodeConverter.Parser.Delphi
       return parsedClasses;
     }
 
+    private enum eTextType { TextType_unknown, TextType_comment, TextType_unit, TextType_interface, TextType_implementation };
+
     /// <summary>
     /// parse the delphi content of file. Split up to interface and implementation sections
     /// </summary>
     /// <param name="content"></param>
     /// <returns></returns>
-    private cDelphiFile parseDelphi(string[] content)
+    private cDelphiFile parseDelphi(List<string> content)
     {
+      eTextType texttype = eTextType.TextType_unknown;  
       cDelphiFile file = new cDelphiFile();
 
       // get all classes inside this file
-      // split up file sections
-      bool isInterface = false;
-      bool isImplementation = false;
-      bool isFileName = false;
-      foreach (string word in content)
+      // split up file sections      
+      foreach (string line in content)
       {
-        if (word != "end.")
+        if (line != "")
         {
-          // file unit name
-          if (word == "unit") { isFileName = true; }
+          string[] words = line.Split(' ');
 
-          if (word == "interface") { isInterface = true; isImplementation = false; isFileName = false; continue; }
-          if (word == "implementation") { isInterface = false; isImplementation = true; isFileName = false; continue; }
-
-          if (isFileName)
+          if (words.Last() != "end.")
           {
-            file.FileName = word;
+            if ((words.First() == "//") || (words.First() == "///")) { texttype = eTextType.TextType_comment; }
+            if (words.First() == "unit") { texttype = eTextType.TextType_unit; }
+            if (words.First() == "interface") { texttype = eTextType.TextType_interface; }
+            if (words.First() == "implementation") { texttype = eTextType.TextType_implementation; }
+
+            switch (texttype)
+            {
+              case eTextType.TextType_comment:
+                {
+                  file.FileHeader += line + '\r' + '\n';
+                  break;
+                }
+
+              case eTextType.TextType_unit:
+                {
+                  file.FileName = words.Last();
+                  break;
+                }
+
+              case eTextType.TextType_interface:
+                {
+                  file.InterfaceSection.Add(line);
+                  break;
+                }
+
+              case eTextType.TextType_implementation:
+                {
+                  file.ImplementationSection.Add(line);
+                  break;
+                }
+            }
           }
-
-          if (isInterface)
+          else
           {
-            file.InterfaceSection.Add(word);
-          }
-
-          if (isImplementation)
-          {
-            file.ImplementationSection.Add(word);
+            // first get interface of classes
+            file.Classes.AddRange(parseInterface(file.InterfaceSection));
           }
         }
-        else
-        {
-          // first get interface of classes
-          file.Classes.AddRange(parseInterface(file.InterfaceSection));
-        }       
       }
       return file;
     }  
@@ -321,23 +399,26 @@ namespace CodeConverter.Parser.Delphi
 
       cClassAbstraction parsedClass = new cClassAbstraction();
 
-      string tmp = reader.ReadToEnd();
+      List<string> lines = new List<string>();
+      while (!reader.EndOfStream)
+      {
+        string line = reader.ReadLine();
+        // remove escape sequences
+        string unescapedblock = line.Aggregate(new StringBuilder(), (builder, character) =>
+                                                escapedChar.Contains(character) ? builder.Append(' ') : builder.Append(character))
+                                                .ToString();
 
-      // remove escape sequences
-      string unescapedblock = tmp.Aggregate(new StringBuilder(), (builder, character) =>
-                                              escapedChar.Contains(character) ? builder.Append(' ') : builder.Append(character))
-                                              .ToString();
+        // make sure to split words wich have '(' or ')' inside
+        string unescapedBrackletHandledblock = unescapedblock.Aggregate(new StringBuilder(), (builder, character) =>
+                                                                  ((character == '(') || (character == ')')) ? builder.Append(' ').Append(character).Append(' ') : builder.Append(character))
+                                                                  .ToString();
 
-      // make sure to split words wich have '(' or ')' inside
-      string unescapedBrackletHandledblock = unescapedblock.Aggregate(new StringBuilder(), (builder, character) =>
-                                                                ((character == '(') || (character == ')')) ? builder.Append(' ').Append(character).Append(' ') : builder.Append(character))
-                                                                .ToString();
-
-      // retrieve all words in file separately
-      string[] words = unescapedBrackletHandledblock.Split(' ').Where(word => word != "").ToArray();
+        lines.Add(unescapedBrackletHandledblock);
+      }
+      reader.Close();
 
       // let the parser work
-      return parseDelphi(words);
+      return parseDelphi(lines);
     }
   }
 }

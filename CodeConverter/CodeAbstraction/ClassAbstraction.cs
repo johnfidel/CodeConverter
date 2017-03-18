@@ -9,8 +9,25 @@ namespace CodeConverter
 {
   public enum eVisiblity { Visibility_private, Visibility_protected, Visibility_public };
 
+  /// <summary>
+  /// abstraction for a member
+  /// </summary>
   public class cMember
   {
+    public string InlineComment
+    {
+      get { return m_InlineComment; }
+      set { m_InlineComment = value; }
+    }
+    private string m_InlineComment = "";
+
+    public List<String> Comment
+    {
+      get { return m_Comment; }
+      set { m_Comment = value; }
+    }
+    private List<String> m_Comment = new List<string>();
+
     public string Name
     {
       get { return m_Name; }
@@ -31,10 +48,32 @@ namespace CodeConverter
       set { m_Visibility = value; }
     }
     private eVisiblity m_Visibility = eVisiblity.Visibility_private;
+
+    public override string ToString()
+    {      
+      return Enum.GetName(typeof(eVisiblity), m_Visibility).Replace("Visibility_", "") + " " + 
+                          m_DataType + " " + Name;      
+    }
   }
     
+  /// <summary>
+  /// Abstraction class for a method
+  /// </summary>
   public class cMethod
   {
+    public string InlineComment
+    {
+      get { return m_InlineComment; }
+      set { m_InlineComment = value; }
+    }
+    private string m_InlineComment = "";
+
+    public List<String> Comment
+    {
+      get { return m_Comment; }
+      set { m_Comment = value; }
+    }
+    private List<String> m_Comment = new List<string>();
 
     public string Name
     {
@@ -64,10 +103,38 @@ namespace CodeConverter
     }
     private eVisiblity m_Visibility = eVisiblity.Visibility_private;
 
+    public override string ToString()
+    {
+      if (m_Parameters.Count > 0)
+      {
+        return Enum.GetName(typeof(eVisiblity), m_Visibility).Replace("Visibility_", "") + " " +
+              m_DataType + " " +
+              Name + "(" + m_Parameters.Aggregate(new StringBuilder(), (builder, param) => 
+                                                          builder.Append(param.ToString()).Append(", ")) + ")";
+      }
+      else
+      {
+        return Enum.GetName(typeof(eVisiblity), m_Visibility).Replace("Visibility_", "") + " " +
+              m_DataType + " " +
+              Name + "()";
+      }
+      
+    }
+
   }
 
+  /// <summary>
+  /// abstraction for a class
+  /// </summary>
   public class cClassAbstraction
   {
+    public List<String> Comment
+    {
+      get { return m_Comment; }
+      set { m_Comment = value; }
+    }
+    private List<String> m_Comment = new List<string>();
+
     public string ClassName
     {
       get { return m_ClassName; }

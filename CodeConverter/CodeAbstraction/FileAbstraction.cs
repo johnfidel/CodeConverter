@@ -16,6 +16,13 @@ namespace CodeConverter.CodeAbstraction
     }
     private string m_FileName;
 
+    public string FileHeader
+    {
+      get { return m_FileHeader; }
+      set { m_FileHeader = value; }
+    }
+    private string m_FileHeader;
+
     public List<cClassAbstraction> Classes
     {
       get { return m_Classes; }

@@ -1,18 +1,32 @@
+// this is a unit documentation
+// next line
+// next line
 unit UTest;
 
 interface
 
+  // this is a class documentation
+  // next line
+  // next line
   type TEmptyClass = class
 
   end;
 
 	type
+
+    // this is the next class documentation
+    // next line
+    // next line
 		TTest = class
 
 			private
-				privateMember1: Boolean;
+
+		TestMember: Integer; //testinline comment
+        // a member comment
+				privateMember1:
+          Boolean;
         privateMember2 : Integer;
-        privateMember3 : Double ;
+        privateMember3 : Double ;             // inline comment
 
 			private	procedure privateProcedure1;
 			private	function privateFunction1(param1: Integer; param2: Double): Boolean;
@@ -24,7 +38,9 @@ interface
         protectedMember2 : Integer;
         protectedMember3 : Double ;
 
-			 protected	procedure protectedProcedure1;
+      protected	procedure protectedProcedure1;
+
+        // a procedure comment
 				function protectedFunction1: Boolean;
         function protectedFunction2 : Integer;
         function protectedFunction3 : Double ;
@@ -34,7 +50,8 @@ interface
         publicMember2 : Integer;
         publicMember3 : Double ;
 
-			public procedure publicProcedure1;
+			public procedure publicProcedure1(param1: Double; 
+											param2 : TList<Integer>);
 				function publicFunction1: Boolean;
         function publicFunction2 : Integer;
         function publicFunction3 : Double ;
@@ -45,12 +62,16 @@ implementation
 
 { TTest }
 
-function TTest.privateFunction1: Boolean;
+{ TTest }
+
+function TTest.privateFunction1(param1: Integer; param2: Double): Boolean;
 begin
 
 end;
 
-function TTest.privateFunction2: Integer;
+// function comment
+//
+function TTest.privateFunction2(param1: Integer): Integer;
 begin
 
 end;
